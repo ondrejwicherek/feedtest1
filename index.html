@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word to MQL Transformer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #5c7cfa;
+      --accent-hover: #748ffc;
+      --danger: #fa5252;
+      --success: #40c057;
+      --warning: #fab005;
+      --text: #e8eaf6;
+      --text-muted: #8892b0;
+      --radius: 10px;
+      --font: 'Segoe UI', system-ui, sans-serif;
+      --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 32px;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    header h1 span {
+      color: var(--accent);
+    }
+
+    header p {
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-right: 6px;
+      margin-top: 10px;
+    }
+
+    .badge.google { border-color: #4285f4; color: #4285f4; }
+    .badge.heureka { border-color: #ff7900; color: #ff7900; }
+    .badge.zbozi { border-color: #cc0000; color: #cc0000; }
+    .badge.custom { border-color: var(--text-muted); }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    /* Condition rows */
+    #conditions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .condition-row {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      position: relative;
+      transition: border-color 0.15s;
+    }
+
+    .condition-row:hover {
+      border-color: #3d4470;
+    }
+
+    .condition-row.has-error {
+      border-color: var(--danger);
+    }
+
+    .connector-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 8px;
+    }
+
+    .connector-row::before,
+    .connector-row::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .connector-btn {
+      display: flex;
+      gap: 4px;
+    }
+
+    .connector-btn button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-muted);
+      padding: 3px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.5px;
+    }
+
+    .connector-btn button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .connector-btn button:hover:not(.active) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .row-controls {
+      display: grid;
+      grid-template-columns: 200px 160px 1fr auto;
+      gap: 10px;
+      align-items: start;
+    }
+
+    @media (max-width: 700px) {
+      .row-controls {
+        grid-template-columns: 1fr 1fr;
+      }
+      .row-controls .value-cell {
+        grid-column: 1 / -1;
+      }
+      .row-controls .actions-cell {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: flex-end;
+      }
+    }
+
+    label.field-label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    select, input[type="text"], textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.88rem;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color 0.15s;
+      appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238892b0' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+      cursor: pointer;
+    }
+
+    select:focus, input[type="text"]:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 70px;
+      font-size: 0.83rem;
+      line-height: 1.5;
+    }
+
+    .value-hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Buttons */
+    button {
+      cursor: pointer;
+      font-family: var(--font);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-danger {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 10px;
+    }
+
+    .btn-danger:hover {
+      color: var(--danger);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .btn-success:hover { filter: brightness(1.1); }
+
+    .actions-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    /* Output */
+    .output-area {
+      position: relative;
+    }
+
+    .mql-output {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: #a8d8ea;
+      min-height: 80px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .mql-output .kw { color: #c792ea; font-weight: 600; }
+    .mql-output .field { color: #82aaff; }
+    .mql-output .op { color: #89ddff; }
+    .mql-output .val { color: #c3e88d; }
+    .mql-output .paren { color: #ffcb6b; }
+    .mql-output .empty { color: var(--text-muted); font-style: italic; font-family: var(--font); font-size: 0.85rem; }
+
+    .copy-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .copy-bar .char-count {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Group bracket indicator */
+    .group-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .group-toggle label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    /* Field group optgroup */
+    optgroup { color: var(--text-muted); font-style: normal; }
+    option { color: var(--text); background: var(--surface2); }
+
+    /* Raw input mode */
+    .raw-section {
+      margin-top: 16px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .toggle-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Tooltip */
+    [data-tip] {
+      position: relative;
+    }
+
+    [data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e2235;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      color: var(--text);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .section-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+
+    .drag-handle {
+      cursor: grab;
+      color: var(--text-muted);
+      font-size: 1rem;
+      padding: 0 4px;
+      margin-right: 4px;
+      user-select: none;
+    }
+
+    .row-top {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .row-index {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      min-width: 24px;
+    }
+
+    select optgroup[label="── Google Merchant"] { color: #4285f4; }
+    select optgroup[label="── Heureka.cz / Heureka.sk"] { color: #ff7900; }
+    select optgroup[label="── Zboží.cz"] { color: #cc0000; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Word to <span>MQL</span> Transformer</h1>
+    <p>Build Mergado Query Language filters visually — no manual syntax needed.</p>
+    <div>
+      <span class="badge google">Google Merchant</span>
+      <span class="badge heureka">Heureka.cz</span>
+      <span class="badge zbozi">Zboží.cz</span>
+      <span class="badge custom">Custom fields</span>
+    </div>
+  </header>
+
+  <!-- Condition builder -->
+  <div class="card">
+    <div class="card-title">Conditions</div>
+    <div id="conditions-list"></div>
+    <div class="actions-bar">
+      <button class="btn btn-primary" onclick="addCondition()">+ Add Condition</button>
+      <button class="btn btn-ghost" onclick="clearAll()">Clear All</button>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="card">
+    <div class="card-title">Generated MQL</div>
+    <div class="output-area">
+      <div class="mql-output" id="mql-output"><span class="empty">Add at least one condition above to generate MQL…</span></div>
+    </div>
+    <div class="copy-bar">
+      <span class="char-count" id="char-count"></span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" onclick="copyRaw()" id="copy-raw-btn">Copy Raw</button>
+        <button class="btn btn-success" onclick="copyMQL()" id="copy-btn">Copy MQL</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Field definitions ────────────────────────────────────────────────────────
+
+const FIELDS = [
+  // Common / Generic
+  { group: "── Common",        value: "ITEM_ID",                  label: "ITEM_ID – Product ID",               type: "string" },
+  { group: "── Common",        value: "PRODUCTNAME",              label: "PRODUCTNAME – Product Name",         type: "string" },
+  { group: "── Common",        value: "PRODUCT",                  label: "PRODUCT – Variant Name",             type: "string" },
+  { group: "── Common",        value: "MANUFACTURER",             label: "MANUFACTURER – Brand",               type: "string" },
+  { group: "── Common",        value: "CATEGORYTEXT",             label: "CATEGORYTEXT – Category",            type: "string" },
+  { group: "── Common",        value: "EAN",                      label: "EAN – EAN Barcode",                  type: "string" },
+  { group: "── Common",        value: "PRICE_VAT",                label: "PRICE_VAT – Price with VAT",         type: "number" },
+  { group: "── Common",        value: "PRICE",                    label: "PRICE – Price",                      type: "number" },
+  { group: "── Common",        value: "DELIVERY_DATE",            label: "DELIVERY_DATE – Availability (days)", type: "number" },
+  { group: "── Common",        value: "ITEM_TYPE",                label: "ITEM_TYPE – Item Type",              type: "string" },
+  { group: "── Common",        value: "ITEMGROUP_ID",             label: "ITEMGROUP_ID – Item Group ID",       type: "string" },
+  { group: "── Common",        value: "DESCRIPTION",              label: "DESCRIPTION – Description",          type: "string" },
+  { group: "── Common",        value: "URL",                      label: "URL – Product URL",                  type: "string" },
+  { group: "── Common",        value: "IMGURL",                   label: "IMGURL – Image URL",                 type: "string" },
+  // Heureka specific
+  { group: "── Heureka.cz / Heureka.sk", value: "HEUREKA_CPC",   label: "HEUREKA_CPC – CPC Bid",             type: "number" },
+  { group: "── Heureka.cz / Heureka.sk", value: "IMGURL_ALTERNATIVE", label: "IMGURL_ALTERNATIVE – Alt Image", type: "string" },
+  // Zboží.cz specific
+  { group: "── Zboží.cz",      value: "PRODUCTNO",                label: "PRODUCTNO – Product No (MPN)",      type: "string" },
+  { group: "── Zboží.cz",      value: "BRAND",                    label: "BRAND – Brand",                     type: "string" },
+  { group: "── Zboží.cz",      value: "VISIBILITY",               label: "VISIBILITY – Visibility",           type: "string" },
+  { group: "── Zboží.cz",      value: "CONDITION",                label: "CONDITION – Condition",             type: "string" },
+  { group: "── Zboží.cz",      value: "CUSTOM_LABEL",             label: "CUSTOM_LABEL – Custom Label",       type: "string" },
+  { group: "── Zboží.cz",      value: "EXTRA_MESSAGE",            label: "EXTRA_MESSAGE – Extra Message",     type: "string" },
+  // Google Merchant
+  { group: "── Google Merchant", value: "g:id",                   label: "g:id – Product ID",                 type: "string" },
+  { group: "── Google Merchant", value: "g:title",                label: "g:title – Title",                   type: "string" },
+  { group: "── Google Merchant", value: "g:brand",                label: "g:brand – Brand",                   type: "string" },
+  { group: "── Google Merchant", value: "g:gtin",                 label: "g:gtin – GTIN",                     type: "string" },
+  { group: "── Google Merchant", value: "g:mpn",                  label: "g:mpn – MPN",                       type: "string" },
+  { group: "── Google Merchant", value: "g:google_product_category", label: "g:google_product_category – Google Category", type: "string" },
+  { group: "── Google Merchant", value: "g:product_type",         label: "g:product_type – Product Type",     type: "string" },
+  { group: "── Google Merchant", value: "g:availability",         label: "g:availability – Availability",     type: "string" },
+  { group: "── Google Merchant", value: "g:price",                label: "g:price – Price",                   type: "number" },
+  { group: "── Google Merchant", value: "g:sale_price",           label: "g:sale_price – Sale Price",         type: "number" },
+  { group: "── Google Merchant", value: "g:condition",            label: "g:condition – Condition",           type: "string" },
+  { group: "── Google Merchant", value: "g:color",                label: "g:color – Color",                   type: "string" },
+  { group: "── Google Merchant", value: "g:size",                 label: "g:size – Size",                     type: "string" },
+  { group: "── Google Merchant", value: "g:age_group",            label: "g:age_group – Age Group",           type: "string" },
+  { group: "── Google Merchant", value: "g:gender",               label: "g:gender – Gender",                 type: "string" },
+  { group: "── Google Merchant", value: "g:item_group_id",        label: "g:item_group_id – Item Group ID",   type: "string" },
+  { group: "── Google Merchant", value: "g:custom_label_0",       label: "g:custom_label_0 – Custom Label 0", type: "string" },
+  { group: "── Google Merchant", value: "g:custom_label_1",       label: "g:custom_label_1 – Custom Label 1", type: "string" },
+  { group: "── Google Merchant", value: "g:custom_label_2",       label: "g:custom_label_2 – Custom Label 2", type: "string" },
+  { group: "── Google Merchant", value: "g:custom_label_3",       label: "g:custom_label_3 – Custom Label 3", type: "string" },
+  { group: "── Google Merchant", value: "g:custom_label_4",       label: "g:custom_label_4 – Custom Label 4", type: "string" },
+  { group: "── Google Merchant", value: "g:shipping_label",       label: "g:shipping_label – Shipping Label", type: "string" },
+  { group: "── Google Merchant", value: "g:shipping_weight",      label: "g:shipping_weight – Shipping Weight", type: "number" },
+  { group: "── Custom",        value: "__custom__",               label: "✎ Custom field name…",              type: "string" },
+];
+
+const STRING_OPS = [
+  { value: "=",           label: "= equals" },
+  { value: "!=",          label: "!= not equals" },
+  { value: "CONTAINS",    label: "CONTAINS" },
+  { value: "NOT CONTAINS",label: "NOT CONTAINS" },
+  { value: "IN",          label: "IN (list)" },
+  { value: "NOT IN",      label: "NOT IN (list)" },
+  { value: "~",           label: "~ matches regex" },
+  { value: "!~",          label: "!~ not regex" },
+];
+
+const NUMBER_OPS = [
+  { value: "=",  label: "= equals" },
+  { value: "!=", label: "!= not equals" },
+  { value: ">",  label: "> greater than" },
+  { value: ">=", label: ">= greater or equal" },
+  { value: "<",  label: "< less than" },
+  { value: "<=", label: "<= less or equal" },
+  { value: "IN", label: "IN (list)" },
+  { value: "NOT IN", label: "NOT IN (list)" },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let conditions = [];
+let nextId = 1;
+
+function createCondition() {
+  return {
+    id: nextId++,
+    field: "MANUFACTURER",
+    customField: "",
+    operator: "IN",
+    value: "",
+    connector: "AND",   // connector AFTER this condition (AND / OR)
+    grouped: false,
+    negated: false,
+  };
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+
+function buildFieldOptions(selectedValue) {
+  const groups = {};
+  FIELDS.forEach(f => {
+    if (!groups[f.group]) groups[f.group] = [];
+    groups[f.group].push(f);
+  });
+
+  return Object.entries(groups).map(([g, fields]) =>
+    `<optgroup label="${g}">${
+      fields.map(f =>
+        `<option value="${f.value}" ${f.value === selectedValue ? 'selected' : ''}>${f.label}</option>`
+      ).join('')
+    }</optgroup>`
+  ).join('');
+}
+
+function getOpsForField(fieldValue) {
+  const f = FIELDS.find(x => x.value === fieldValue);
+  return (f && f.type === 'number') ? NUMBER_OPS : STRING_OPS;
+}
+
+function buildOpOptions(fieldValue, selectedOp) {
+  return getOpsForField(fieldValue).map(op =>
+    `<option value="${op.value}" ${op.value === selectedOp ? 'selected' : ''}>${op.label}</option>`
+  ).join('');
+}
+
+function isListOp(op) {
+  return op === 'IN' || op === 'NOT IN';
+}
+
+function renderConditions() {
+  const list = document.getElementById('conditions-list');
+
+  if (conditions.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;padding:8px 0;">No conditions yet. Click "Add Condition" to start.</div>';
+    updateOutput();
+    return;
+  }
+
+  list.innerHTML = conditions.map((c, i) => {
+    const isLast = i === conditions.length - 1;
+    const isList = isListOp(c.operator);
+    const fieldObj = FIELDS.find(f => f.value === c.field);
+    const isCustom = c.field === '__custom__';
+
+    const condHtml = `
+      <div class="condition-row" id="row-${c.id}">
+        <div class="row-top">
+          <span class="row-index">#${i + 1}</span>
+          <div style="margin-left:auto;display:flex;gap:4px;align-items:center;">
+            <label style="font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;" data-tip="Wrap in NOT(…)">
+              <input type="checkbox" ${c.negated ? 'checked' : ''} onchange="updateNegated(${c.id}, this.checked)"> NOT
+            </label>
+            <button class="btn-danger" onclick="removeCondition(${c.id})" title="Remove condition">✕</button>
+          </div>
+        </div>
+        <div class="row-controls">
+          <div>
+            <label class="field-label">Field</label>
+            <select onchange="updateField(${c.id}, this.value)">
+              ${buildFieldOptions(c.field)}
+            </select>
+          </div>
+          ${isCustom ? `
+          <div>
+            <label class="field-label">Field name</label>
+            <input type="text" placeholder="e.g. PARAM|color" value="${escHtml(c.customField)}"
+              oninput="updateCustomField(${c.id}, this.value)">
+          </div>` : `
+          <div>
+            <label class="field-label">Operator</label>
+            <select onchange="updateOperator(${c.id}, this.value)">
+              ${buildOpOptions(c.field, c.operator)}
+            </select>
+          </div>`}
+          ${isCustom ? `
+          <div>
+            <label class="field-label">Operator</label>
+            <select onchange="updateOperator(${c.id}, this.value)">
+              ${buildOpOptions(c.field, c.operator)}
+            </select>
+          </div>` : ''}
+          <div class="value-cell ${isCustom ? '' : ''}">
+            <label class="field-label">${isList ? 'Values (one per line or comma-separated)' : 'Value'}</label>
+            ${isList
+              ? `<textarea placeholder="value1\nvalue2\nvalue3" oninput="updateValue(${c.id}, this.value)">${escHtml(c.value)}</textarea>`
+              : `<input type="text" placeholder="${fieldObj && fieldObj.type === 'number' ? '0' : 'value'}" value="${escHtml(c.value)}" oninput="updateValue(${c.id}, this.value)">`
+            }
+            ${isList ? `<div class="value-hint">Paste a list — newlines and commas are both accepted</div>` : ''}
+          </div>
+          <div class="actions-cell" style="padding-top:22px;">
+          </div>
+        </div>
+      </div>`;
+
+    const connectorHtml = !isLast ? `
+      <div class="connector-row">
+        <div class="connector-btn">
+          <button class="${c.connector === 'AND' ? 'active' : ''}" onclick="updateConnector(${c.id}, 'AND')">AND</button>
+          <button class="${c.connector === 'OR' ? 'active' : ''}" onclick="updateConnector(${c.id}, 'OR')">OR</button>
+        </div>
+      </div>` : '';
+
+    return condHtml + connectorHtml;
+  }).join('');
+
+  updateOutput();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── State mutations ──────────────────────────────────────────────────────────
+
+function addCondition() {
+  conditions.push(createCondition());
+  renderConditions();
+}
+
+function removeCondition(id) {
+  conditions = conditions.filter(c => c.id !== id);
+  renderConditions();
+}
+
+function clearAll() {
+  conditions = [];
+  renderConditions();
+}
+
+function updateField(id, value) {
+  const c = conditions.find(c => c.id === id);
+  c.field = value;
+  // Reset operator to a valid one for the new field type
+  const ops = getOpsForField(value);
+  if (!ops.find(o => o.value === c.operator)) {
+    c.operator = ops[0].value;
+  }
+  renderConditions();
+}
+
+function updateCustomField(id, value) {
+  conditions.find(c => c.id === id).customField = value;
+  updateOutput();
+}
+
+function updateOperator(id, value) {
+  conditions.find(c => c.id === id).operator = value;
+  renderConditions();
+}
+
+function updateValue(id, value) {
+  conditions.find(c => c.id === id).value = value;
+  updateOutput();
+}
+
+function updateConnector(id, value) {
+  conditions.find(c => c.id === id).connector = value;
+  renderConditions();
+}
+
+function updateNegated(id, val) {
+  conditions.find(c => c.id === id).negated = val;
+  updateOutput();
+}
+
+// ── MQL generation ───────────────────────────────────────────────────────────
+
+function parseValues(raw) {
+  return raw
+    .split(/[\n,]+/)
+    .map(v => v.trim())
+    .filter(v => v.length > 0);
+}
+
+function quoteValue(v, fieldValue) {
+  const f = FIELDS.find(x => x.value === fieldValue);
+  const isNum = f && f.type === 'number';
+  if (isNum && !isNaN(v)) return v;
+  return `'${v.replace(/'/g, "\\'")}'`;
+}
+
+function fieldName(c) {
+  if (c.field === '__custom__') {
+    const name = c.customField.trim();
+    // Escape if contains special chars
+    return name.includes('|') || name.includes(' ') || name.includes('-')
+      ? `[${name}]`
+      : name;
+  }
+  // Google fields with colon need brackets in Mergado
+  if (c.field.startsWith('g:')) return `[${c.field}]`;
+  return c.field;
+}
+
+function buildSingleMQL(c) {
+  const fname = fieldName(c);
+  if (!fname) return null;
+
+  const val = c.value.trim();
+  if (!val) return null;
+
+  if (isListOp(c.operator)) {
+    const vals = parseValues(val);
+    if (vals.length === 0) return null;
+    const quoted = vals.map(v => quoteValue(v, c.field)).join(', ');
+    return `${fname} ${c.operator} (${quoted})`;
+  } else {
+    return `${fname} ${c.operator} ${quoteValue(val, c.field)}`;
+  }
+}
+
+function generateMQL() {
+  if (conditions.length === 0) return null;
+
+  const parts = [];
+  for (let i = 0; i < conditions.length; i++) {
+    const c = conditions[i];
+    let expr = buildSingleMQL(c);
+    if (!expr) continue;
+
+    if (c.negated) expr = `NOT (${expr})`;
+
+    if (parts.length === 0) {
+      parts.push({ expr, connector: c.connector });
+    } else {
+      // use the previous condition's connector
+      parts.push({ expr, connector: c.connector, useConnector: conditions[i - 1].connector });
+    }
+  }
+
+  if (parts.length === 0) return null;
+
+  let result = parts[0].expr;
+  for (let i = 1; i < parts.length; i++) {
+    result += ` ${parts[i].useConnector} ${parts[i].expr}`;
+  }
+
+  return result;
+}
+
+// ── Syntax highlighting ──────────────────────────────────────────────────────
+
+function highlight(mql) {
+  if (!mql) return '<span class="empty">Add at least one condition above to generate MQL…</span>';
+
+  return mql
+    // Keywords
+    .replace(/\b(AND|OR|NOT|IN|CONTAINS)\b/g, '<span class="kw">$1</span>')
+    // Operators
+    .replace(/(!=|>=|<=|=|>|<|~|!~)/g, '<span class="op">$1</span>')
+    // Strings
+    .replace(/'([^']*)'/g, '<span class="val">\'$1\'</span>')
+    // Numbers
+    .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="val">$1</span>')
+    // Parens
+    .replace(/[()]/g, '<span class="paren">$&</span>')
+    // Fields (word before space+op)
+    .replace(/(\[?[a-zA-Z_:][a-zA-Z0-9_:|]*\]?)\s+(?=<span class="op">|<span class="kw">(?:IN|CONTAINS|NOT))/g,
+      '<span class="field">$1</span> ');
+}
+
+function updateOutput() {
+  const mql = generateMQL();
+  const out = document.getElementById('mql-output');
+  out.innerHTML = highlight(mql);
+
+  const cc = document.getElementById('char-count');
+  cc.textContent = mql ? `${mql.length} characters` : '';
+}
+
+// ── Copy ─────────────────────────────────────────────────────────────────────
+
+function flashBtn(id, text, color) {
+  const btn = document.getElementById(id);
+  const orig = btn.textContent;
+  btn.textContent = text;
+  btn.style.background = color;
+  setTimeout(() => {
+    btn.textContent = orig;
+    btn.style.background = '';
+  }, 1400);
+}
+
+function copyMQL() {
+  const mql = generateMQL();
+  if (!mql) return;
+  navigator.clipboard.writeText(mql).then(() => flashBtn('copy-btn', '✓ Copied!', '#2f9e44'));
+}
+
+function copyRaw() {
+  const mql = generateMQL();
+  if (!mql) return;
+  navigator.clipboard.writeText(mql).then(() => flashBtn('copy-raw-btn', '✓ Copied!', '#2f9e44'));
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+// Start with one example condition
+const first = createCondition();
+first.field = 'MANUFACTURER';
+first.operator = 'IN';
+first.value = 'Milwaukee';
+conditions.push(first);
+
+renderConditions();
+</script>
+</body>
+</html>
